@@ -1,0 +1,64 @@
+version: '2'
+
+volumes:
+  postgres_data: {}
+  static_files: {}
+
+services:
+  postgres:
+    env_file: .env
+    environment:
+      - POSTGRES_USER=apostello
+      - POSTGRES_PASSWORD=apostello
+    image: postgres
+    build:
+      context: .
+      dockerfile: ./postgres/Dockerfile
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups/postgres:/backups
+    restart: always
+  redis:
+    image: redis
+    restart: always
+  q:
+    build:
+      context: .
+      dockerfile: ./django/Dockerfile
+    env_file: .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=settings.docker_prod
+    command: bash -c "./manage.py setup_periodic_tasks && ./manage.py qcluster"
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+  django:
+    build:
+      context: .
+      dockerfile: ./django/Dockerfile
+    env_file: .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=settings.docker_prod
+    command: ./gunicorn.sh
+    volumes:
+      - static_files:/code/static/
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+  caddy:
+    build:
+      context: .
+      dockerfile: ./caddy/Dockerfile
+    env_file: .env
+    command: ./start_server.sh
+    volumes:
+      - ./backups/.caddy:/root/.caddy
+      - static_files:/apostello/static/
+    ports:
+      - "443:443"
+      - "80:80"
+    depends_on:
+      - django
+    restart: always
