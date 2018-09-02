@@ -47,18 +47,11 @@ services:
       - postgres
       - redis
     restart: always
-  caddy:
-    build:
-      context: .
-      dockerfile: ./caddy/Dockerfile
-    env_file: .env
-    command: ./start_server.sh
+  nginx:
+    image: nginx
     volumes:
-      - ./backups/.caddy:/root/.caddy
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
       - static_files:/apostello/static/
-    ports:
-      - "443:443"
-      - "80:80"
     depends_on:
       - django
     restart: always
